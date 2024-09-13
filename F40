@@ -1,9 +1,74 @@
+"""
+Часть 1. Парсинг (10 баллов)
+Мы предлагаем вам распарсить часть данных litres.ru — а именно часть про книги, имеющие отношение к программированию.
+
+Они находятся в этом каталоге: https://www.litres.ru/genre/programmirovanie-5272/
+
+Вам нужно собрать датасет о книгах с первых 40-ти страниц каталога (около 960 книг.) Подсказка. Можете начать с исследования html кода этой страницы.
+
+Вам необходимо собрать датасет, содержащий следующие данные:
+
+name: название книги
+author: автор
+link: ссылка на книгу
+rating: рейтинг по 5-балльной шкале
+rating_count: количество оценок
+review_count: количество отзывов
+pages_count: объем (число страниц)
+price: цена
+text_reviews: тексты отзывов: список строк
+age: возрастное ограничение
+year: год написания
+В дальнейшем вам нужно будет анализировать полученный у вас датасет.
+
+Если у вас не получилось спарсить датасет, воспользуйтесь для последующих пунктов готовым датасетом: https://disk.yandex.ru/d/2UZet2-qxRxF6Q
+
+Так вы сможете получить баллы за вторую часть.
+
+(Датасет неидеален, с ним придется поработать!)
+
+Парсите "вежливо": используйте time.sleep() не меньше 1-2 секунд между запросами к сайту!
+
+Часть 2. EDA (30 баллов)
+Выведите первые 5 строк датасета. (0.25). Сколько в нём строк и столбцов (0.25)?
+Есть ли в датасете пропуски? (0.5)
+Проверьте типы данных. Если это необходимо, приведите к типам int и float те столбцы, с которыми понадобится работать как с числами. (1).
+Выведите описательные статистики переменных. Ответьте на следующие вопросы:
+Какая медианная цена книги в вашем датасете? (1)
+Какое возрастное ограничение встречается чаще всего? (1)
+Какое среднее число отзывов в книге? (1)
+Сколько книг имеют оценку ниже 4.25? (1)
+В каком году было написано больше всего книг из датасета? (1)
+Если вы работаете с готовым датасетом, то попробуйте "достать" из столбца pages количество страниц. Если у вас не получилось, то далее при определении числа страниц пользуйтесь стольцов pages_count. Если вы парсили датасет сами, то вы получаете балл за этот пункт автоматически (1.5)
+
+Создайте новое поле is_popular. Значение равно 1, если рейтинг книги не менее 4.6 и при этом у нее не менее 5 отзывов, и 0 в остальных случаях. (1)
+
+Как отличается среднее число страниц среди популярных и непопулярных книг? (2)
+
+Выведите топ-10 книг по числу отзывов. (2).
+
+Найдите среднюю длину отзыва (в символах). (2)
+
+Постройте таблицу корреляций числовых переменных. (1) Прокомментируйте результаты. (1)
+
+Постройте диаграмму рассеяния (scatterplot) количества страниц и количества отзывов. Не забудьте подписать график и оси. (1) Прокомментируйте полученные результаты. (1)
+
+Постройте линейный график: по оси Х год, по оси Y количество книг. (1) Прокомментируйте. (1)
+
+Постройте еще любые два графика по вашему усмотрению. (2) Прокомментируйте полученные результаты. (1.5)
+
+Постройте таблицу с авторами книг с именем автора, количество книг в датасете, средней оценкой книг, средним количеством отзывов. (2).
+
+Что еще интересного можно увидеть в этом датасете? Просмотрите на данные и ответьте на какие-нибудь вопросы, на которые не ответили в предыдущим пункте. Мы никак не ограничиваем вашу фантазию! (3).
+"""
 import requests
 from bs4 import BeautifulSoup
 import json
 import time
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 BASE_SITE = 'https://www.litres.ru'
 BASE_URL = 'https://www.litres.ru/genre/programmirovanie-5272/page-{}/'
@@ -11,56 +76,44 @@ HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36'
 }
 
+def join_review(review_list):
+    return ' '.join(review_list)
+
 def parse_book_details(book):
     try:
         name = book.select_one('.ArtInfo_title__h_5Ay').text.strip()
     except AttributeError:
-        name = 'Неизвестно'
+        name = "null"
 
     try:
         author = book.select_one('.ArtInfo_author__0W3GJ').text.strip()
     except AttributeError:
-        author = 'Неизвестно'
+        author = "null"
 
     try:
         link = book.select_one('a')['href']
     except (AttributeError, TypeError):
-        link = 'Неизвестно'
+        link = "null"
 
     try:
         rating = book.select_one('.ArtRating_rating__ntve8').text.strip()
     except (AttributeError, TypeError):
-        rating = 'Нет рейтинга'
+        rating = "null"
 
     try:
         rating_count = book.select_one('.ArtRating_votes__MIJS1').text.strip()
     except AttributeError:
-        rating_count = 'Нет оценок'
+        rating_count = "null"
 
-    try:
-        review_count = book.select_one('.review_count').text.strip()
-    except AttributeError:
-        review_count = 'Нет отзывов'
-
-    try:
-        pages_count = book.select_one('.pages').text.strip()
-    except AttributeError:
-        pages_count = 'Не указано'
+    review_count = "null"
+    pages_count = "null"
+    age = "null"
+    year = "null"
 
     try:
         price = book.select_one('.ArtPriceFooter_ArtPriceFooterPrices__final__7AMjB').text.strip().replace("\xa0₽", "").replace("\xa0","")
     except AttributeError:
-        price = 'Не указана'
-
-    try:
-        age = book.select_one('.age-restriction').text.strip()
-    except AttributeError:
-        age = 'Нет ограничения'
-
-    try:
-        year = book.select_one('.year').text.strip()
-    except AttributeError:
-        year = 'Не указан'
+        price = "null"
 
     text_reviews = []  # Тексты отзывов будут собираться отдельно
 
@@ -79,75 +132,156 @@ def parse_book_details(book):
     }
 
 def scrape_books_from_page(page):
-    """Сбор данных о книгах с одной страницы"""
+    time.sleep(2)
     url = BASE_URL.format(page)
     response = requests.get(url, headers=HEADERS)
     soup = BeautifulSoup(response.content, 'html.parser')
-    books = soup.select('.ArtDefault_cover__text__HKF_g')
-    return [parse_book_details(book) for book in books]
+    booksx = soup.select('.ArtDefault_cover__text__HKF_g')
+    nbook = []
+    for book in booksx:
+       nbook.append(parse_book_details(book))
+    return nbook
 
 def scrape_all_books(pages=1):
-    """Сбор данных о книгах с нескольких страниц"""
     all_books = []
     for page in range(1, pages + 1):
         print(f'Scraping page {page}')
         books = scrape_books_from_page(page)
-#        for item in books:
-#            print(item['price'])
-#            url = BASE_SITE + item["link"]
- #           response = requests.get(url, headers=HEADERS)
- #           soup = BeautifulSoup(response.content, 'html.parser')
- #           book_detail = soup.select('.BookCard_book__1IAPE')
-#            book_detail = book_detail.select_one('.book-factoids__reviews').text.strip()
-#            try:
-#                item['review_count'] = book_detail.select_one('.book-factoids__reviews').text.strip()
-#            except AttributeError:
- #               item['review_count'] = 'Нет отзывов'
+        for item in books:
+            time.sleep(2)
+            print(f'Scraping item {item}')
+            url = BASE_SITE + item["link"]
+            response = requests.get(url, headers=HEADERS)
+            soup = BeautifulSoup(response.content, 'html.parser')
+            divTag = soup.find_all("div", {"class": "CharacteristicsBlock_characteristic__4pi7v"})
+            for tag in divTag:
+                if tag.text.find("Возрастное ограничение") == 0:
+                    item['age'] = tag.text.strip().replace("Возрастное ограничение: ", "")
+                if tag.text.find("Дата написания") == 0:
+                    item['year'] = tag.text.strip().replace("Дата написания: ", "")
+                if tag.text.find("Общее кол-во страниц") == 0:
+                    item['pages_count'] = tag.text.strip().replace("Общее кол-во страниц: ", "")
+            divTag = soup.find_all("div", {"class": "BookFactoids_primary__TVFhL"})
+            for tag in divTag:
+                item['review_count'] = tag.text.strip()
+            divTag = soup.find_all("div", {"class": "Comment_reviewText__PEkHn"})
+            for tag in divTag:
+                item['text_reviews'].append(tag.text)
+
         all_books.extend(books)
         time.sleep(2)  # Задержка между запросами для предотвращения блокировки
     return all_books
-
+"""
 if __name__ == '__main__':
     books_data = scrape_all_books()
-    # Сохранение данных в файл
     with open('books_data.json', 'w', encoding='utf-8') as f:
         json.dump(books_data, f, ensure_ascii=False, indent=4)
-
+"""
 df = pd.read_json('books_data.json')
 
-# 1. Вывод первых 5 строк
-print("Первые 5 строк датасета:")
+print('# 3. Проверьте типы данных и приведите к числовым типам')
+df['rating'] = df['rating'].str.replace(',', '.')
+df['rating_count'] = pd.to_numeric(df['rating_count'], errors='coerce').astype('Int32')
+df['review_count'] = pd.to_numeric(df['review_count'], errors='coerce').astype('Int32')
+df['rating'] = pd.to_numeric(df['rating'], errors='coerce').astype('float')
+df['pages_count'] = pd.to_numeric(df['pages_count'], errors='coerce').astype('Int32')
+df['year'] = pd.to_numeric(df['year'], errors='coerce').astype('Int32')
+
+print('# 1.1 Выведите первые 5 строк датасета')
 print(df.head())
 
-# 2. Определение количества строк и столбцов
-print("\nКоличество строк и столбцов:")
-print(df.shape)
+print('# 1.2 Сколько в нём строк и столбцов')
+print(f"Строки: {df.shape[0]}, Столбцы: {df.shape[1]}")
 
-# 3. Проверка на пропуски
-print("\nПроверка на пропуски:")
-print(df.isnull().sum())
+missing_values = df.isnull().sum()
+has_missing_values = missing_values.any()
+print(f"# 2.Есть ли пропуски в датасете: {has_missing_values}")
 
-# 4. Приведение типов данных
-# Приведение строковых чисел к числовым типам
-df['rating'] = pd.to_numeric(df['rating'], errors='coerce')
-df['rating_count'] = pd.to_numeric(df['rating_count'], errors='coerce')
-df['price'] = df['price'].astype(int)
-
-# 5. Вывод описательных статистик переменных
-print("\nОписательные статистики переменных:")
-print(df.describe(include='all'))
-
-# 6. Медианная цена книги
 median_price = df['price'].median()
-print("\nМедианная цена книги:")
-print(median_price)
+print(f"4.1 Медианная цена книги: {median_price}")
 
-# 7. Наиболее частое возрастное ограничение
 most_common_age = df['age'].mode()[0]
-print("\nНаиболее частое возрастное ограничение:")
-print(most_common_age)
+print(f"4.2 Наиболее частое возрастное ограничение: {most_common_age}")
 
-# 9. Количество книг с оценкой ниже 4.25
-books_below_4_25 = df[df['rating'] < 4.25].shape[0]
-print("\nКоличество книг с оценкой ниже 4.25:")
-print(books_below_4_25)
+average_reviews = df['review_count'].mean()
+print(f"4.3 Среднее число отзывов: {average_reviews}")
+
+low_rated_books = df[df['rating'] < 4.25].shape[0]
+print(f"4.4 Количество книг с оценкой ниже 4.25: {low_rated_books}")
+
+most_common_year = df['year'].mode()[0]
+print(f"4.5 Год с наибольшим количеством книг: {most_common_year}")
+
+#Создайте новое поле is_popular
+df["review_count"] = df["review_count"].apply(lambda x:True if x is pd.NA else x)
+df['is_popular'] = np.where((df['rating'] >= 4.6) & (df['review_count'] >= 5), 1, 0)
+
+avg_pages_popular = df[df['is_popular'] == 1]['pages_count'].mean()
+avg_pages_not_popular = df[df['is_popular'] == 0]['pages_count'].mean()
+print(f"7.1 Среднее число страниц среди популярных книг: {avg_pages_popular}")
+print(f"7.2 Среднее число страниц среди непопулярных книг: {avg_pages_not_popular}")
+
+top_10_reviews = df[['name', 'review_count']].sort_values(by='review_count', ascending=False).head(10)
+print("Выведите топ-10 книг по числу отзывов")
+print(top_10_reviews)
+
+df['text_reviews'] = df['text_reviews'].apply(join_review)
+df['average_review_length'] = df['text_reviews'].apply(len)
+
+average_review_length = df['average_review_length'].mean()
+print(f"9. Средняя длина отзыва: {average_review_length} символов")
+"""
+Значение коэффициента +1 означает наличие
+полной положительной линейной связи, а значение -1 – наличие полной отрицательной линейной связи
+"""
+correlation_matrix = df[['rating', 'rating_count', 'review_count', 'pages_count', 'price', 'year']].corr()
+print(correlation_matrix)
+
+#11 количества страниц и количества отзывов
+plt.scatter(df['pages_count'], df['review_count'])
+plt.xlabel('Количество страниц')
+plt.ylabel('Количество отзывов')
+plt.title('Диаграмма рассеяния количества страниц и количества отзывов')
+#plt.show()
+
+#12 Линейный график по годам и количеству книг
+df['year'].value_counts().sort_index().plot(kind='line')
+plt.xlabel('Год')
+plt.ylabel('Количество книг')
+plt.title('Количество книг по годам')
+#plt.show()
+
+# 13.1. Гистограмма цен книг
+df['price'].hist(bins=20)
+plt.xlabel('Цена')
+plt.ylabel('Количество книг')
+plt.title('Гистограмма цен книг')
+#plt.show()
+
+# 13.2 Гистограмма рейтингов книг
+df['rating'].hist(bins=20)
+plt.xlabel('Рейтинг')
+plt.ylabel('Количество книг')
+plt.title('рейтингов книг')
+#plt.show()
+
+# 14. Таблица с авторами книг
+authors_summary = df.groupby('author').agg(
+    number_of_books=pd.NamedAgg(column='name', aggfunc='count'),
+    average_rating=pd.NamedAgg(column='rating', aggfunc='mean'),
+    average_reviews=pd.NamedAgg(column='review_count', aggfunc='mean')
+).reset_index()
+print("Таблица с авторами книг")
+print(authors_summary)
+
+# 20. Что еще интересного можно увидеть в данных
+# Пример: Распределение книг по возрастному ограничению
+print(df['age'].value_counts())
+
+# Корреляция между рейтингом и ценой
+plt.figure(figsize=(10, 6))
+sns.scatterplot(data=df, x='price', y='rating')
+plt.title('Корреляция между ценой и рейтингом')
+plt.xlabel('Цена')
+plt.ylabel('Рейтинг')
+#plt.show()
